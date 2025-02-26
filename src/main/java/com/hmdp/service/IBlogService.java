@@ -14,8 +14,26 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IBlogService extends IService<Blog> {
 
+
+    /**
+     * 首页博客查询功能
+     * @param current 页数
+     * @return
+     */
     Result queryHotBlog(Integer current);
 
 
+    /**
+     * 笔记查询功能
+     * @param id
+     * @return
+     */
     Result queryBlogById(Long id);
+
+    /**
+     * 笔记点赞功能
+     * @param id 笔记id
+     * @return
+     */
+    Result likeBlog(Long id);
 }
