@@ -10,21 +10,18 @@ import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.aop.framework.AopContext;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
 import java.util.Collections;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+
+import static com.hmdp.utils.RabbitMQConstants.SECKILL_ORDER_EXCHANGE;
+import static com.hmdp.utils.RabbitMQConstants.SECKILL_ORDER_SUCCESS_KEY;
 
 /**
  * <p>
@@ -42,6 +39,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private final ISeckillVoucherService seckillVoucherService;
 
     private final RedisIdWorker redisIdWorker;
+
+    /**
+     * 向消息队列发送消息
+     */
+    private final RabbitTemplate rabbitTemplate;
 
     /**
      * 自定义redis分布式锁
@@ -63,60 +65,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
         SECKILL_SCRIPT.setResultType(Long.class);
     }
-
-    // 阻塞队列
-    private final BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
-
-    // 线程池
-    private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
-
-    // 线程任务
-    private class VoucherOderHandler implements Runnable {
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    // 1. 获取队列中的订单信息
-                    VoucherOrder voucherOrder = orderTasks.take();
-                    // 2. 创建订单
-                    handlerVoucherOrder(voucherOrder);
-                } catch (Exception e) {
-                    log.error("处理订单异常", e);
-                }
-            }
-        }
-    }
-
-    // 处理订单逻辑
-    private void handlerVoucherOrder(VoucherOrder voucherOrder) {
-        // 因为是开启的子线程完成异步下单，因此无法通过 ThreadLocal 获取用户信息
-        Long userId = voucherOrder.getUserId();
-        // 创建锁对象
-        RLock lock = redissonClient.getLock("lock:voucher-order:" + userId);
-        // 获取锁
-        boolean isLock = lock.tryLock();
-        // 判断是否获取锁成功
-        if (!isLock) {
-            log.error("一人只能下一单、");
-            return;
-        }
-        try {
-            // 同理，单例对象也是从当前线程获取的
-            proxy.createVoucherOrder(voucherOrder);
-        } finally {
-            // 释放锁
-            lock.unlock();
-        }
-    }
-
-    // 在类启动时，即开启秒杀优惠券处理任务
-    @PostConstruct
-    private void init() {
-        SECKILL_ORDER_EXECUTOR.submit(new VoucherOderHandler());
-    }
-
-    // 代理对象
-    private IVoucherOrderService proxy;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -146,14 +94,15 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         voucherOrder.setUserId(userId);
         // 2.5 代金券id
         voucherOrder.setVoucherId(voucherId);
-        // 🔺为了将代理对象传递到子线程，将其设置为成员变量
-        proxy = (IVoucherOrderService) AopContext.currentProxy();
-        // 2.6 创建阻塞队列
-        orderTasks.add(voucherOrder);
+
+        // 基于rabbitmq消息队列实现秒杀异步下单 exchange routingKey queue
+        rabbitTemplate.convertAndSend(SECKILL_ORDER_EXCHANGE, SECKILL_ORDER_SUCCESS_KEY, voucherOrder);
+
         // 3. 返回订单id
         return Result.ok(orderId);
     }
 
+    @Override
     @Transactional
     public Result createVoucherOrder(Long voucherId) {
         // 5. 一人一单
@@ -218,5 +167,4 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 6.4 保存订单
         save(voucherOrder);
     }
-
 }
