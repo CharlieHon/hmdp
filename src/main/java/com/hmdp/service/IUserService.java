@@ -24,4 +24,6 @@ public interface IUserService extends IService<User> {
     Result logout(Long token);
 
     Result sign();
+
+    Result signCount();
 }
