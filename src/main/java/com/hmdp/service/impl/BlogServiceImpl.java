@@ -7,9 +7,11 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
+import com.hmdp.entity.Follow;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.BlogMapper;
 import com.hmdp.service.IBlogService;
+import com.hmdp.service.IFollowService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
@@ -23,6 +25,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.hmdp.utils.RedisConstants.BLOG_LIKED_KEY;
+import static com.hmdp.utils.RedisConstants.FEED_KEY;
 
 /**
  * <p>
@@ -39,6 +42,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     private final IUserService userService;
 
     private final StringRedisTemplate stringRedisTemplate;
+
+    private final IFollowService followService;
 
     @Override
     public Result queryHotBlog(Integer current) {
@@ -155,5 +160,29 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
                 .map(user -> BeanUtil.copyProperties(user, UserDTO.class))
                 .collect(Collectors.toList());
         return Result.ok(userDTOS);
+    }
+
+    @Override
+    public Result saveBlog(Blog blog) {
+        // 获取登录用户
+        Long userId = UserHolder.getUser().getId();
+        blog.setUserId(userId);
+        // 保存探店博文
+        boolean isSuccess = save(blog);
+        // 把笔记推送给粉丝
+        if (!isSuccess) {
+            return Result.fail("发送笔记失败");
+        }
+
+        // select * from tb_follow where follow_user_id = userId
+        List<Follow> follows = followService.query().eq("follow_user_id", userId).list();
+        follows.stream()
+                .map(Follow::getUserId) // 获取粉丝id
+                .forEach(userId1 -> {   // 将笔记推送到 key 为 feed:粉丝id 的 sorted_set
+                    String key = FEED_KEY + userId1;
+                    stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
+                });
+        // 返回id
+        return Result.ok(blog.getId());
     }
 }
