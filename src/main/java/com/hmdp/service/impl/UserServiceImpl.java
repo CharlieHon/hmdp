@@ -116,6 +116,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (userDTO.getId() != 1010) {
             stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.MINUTES);
         }
+
+        // UV统计
+        LocalDateTime now = LocalDateTime.now();
+        String keySuffix = now.format(DateTimeFormatter.ofPattern("yyyy:MM:dd"));
+        String uvKey = UV_KEY + keySuffix;
+        stringRedisTemplate.opsForHyperLogLog().add(uvKey, user.getId().toString());
         // 8. 返回token给前端，前断登录时才能携带过来(Header)
         return Result.ok(token);
     }
