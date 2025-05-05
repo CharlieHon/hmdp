@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 
+ * 优惠券实体
  * </p>
  *
  */

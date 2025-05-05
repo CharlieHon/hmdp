@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.utils.RedisConstants.*;
@@ -104,6 +105,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String token = UUID.randomUUID().toString(true);
         // 7.2 将User对象转为HashMap存储
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        if (Objects.equals(userDTO.getId(), 1010L)) {
+            // 简化了店铺管理，userId:1010, shopId:1
+            userDTO.setShopId(1L);
+        }
         // warn: userDTO中id属性为Long，beanToMap默认会保留value类型。但是stringRedisMap要求key和value都是String
         // Map<String, Object> userMap = BeanUtil.beanToMap(userDTO);
         Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(),
@@ -114,6 +119,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // nickName: user_dashjdhaj
         // icon:
         // id: 1010
+        // shopId: 1
         String tokenKey = LOGIN_USER_KEY + token;
         stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
         if (userDTO.getId() != 1010) {

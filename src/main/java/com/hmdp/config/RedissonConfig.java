@@ -20,6 +20,7 @@ public class RedissonConfig {
         // 配置
         Config config = new Config();
         config.useSingleServer()
+                .setDatabase(1)     // index 1 for hmdp_orz
                 .setAddress("redis://192.168.226.133:6379")
                 .setPassword("12345");
         // 创建RedissonClient对象
