@@ -18,8 +18,6 @@ import java.util.List;
  * 前端控制器
  * </p>
  *
- * @author 虎哥
- * @since 2021-12-22
  */
 @RestController
 @RequestMapping("/blog")
@@ -87,6 +85,12 @@ public class BlogController {
         return Result.ok(records);
     }
 
+    /**
+     * 关注推送，查询当前用户关注的用户发布的笔记
+     * @param max 上一次查询结果的最小时间戳
+     * @param offset 查询偏移量，本次查询需要跳过多少记录数量，才能从上次查询结果的下一条开始获取数据
+     * @return
+     */
     @GetMapping("/of/follow")
     public Result queryBlogOfFollow(@RequestParam("lastId") Long max,
                                     @RequestParam(value = "offset", defaultValue = "0") Long offset) {

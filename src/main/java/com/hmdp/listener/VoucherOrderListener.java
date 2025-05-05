@@ -37,7 +37,8 @@ public class VoucherOrderListener {
     ))
     public void createVoucherOrder(VoucherOrder voucherOrder) {
         Long userId = voucherOrder.getUserId();
-
+        // 都是一个线程 thread:org.springframework.amqp.rabbit.RabbitListenerEndpointContainer#0-1
+        // log.debug("thread:" + Thread.currentThread().getName());
         RLock lock = redissonClient.getLock("lock:voucher-order:" + userId);
         boolean isLock = lock.tryLock();
         if (!isLock) {

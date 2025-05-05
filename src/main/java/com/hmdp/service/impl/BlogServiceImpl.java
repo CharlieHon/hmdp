@@ -35,8 +35,6 @@ import static com.hmdp.utils.RedisConstants.FEED_KEY;
  * 服务实现类
  * </p>
  *
- * @author 虎哥
- * @since 2021-12-22
  */
 @Service
 @RequiredArgsConstructor
@@ -81,7 +79,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     }
 
     /**
-     * 查询笔记是否被当前用户顶赞
+     * 查询笔记是否被当前用户点赞，填充Blog的isLiked字段
      *
      * @param blog 笔记
      */
@@ -111,6 +109,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         blog.setIcon(user.getIcon());
     }
 
+    /**
+     * 给博客点赞
+     * @param id 笔记id
+     * @return
+     */
     @Override
     public Result likeBlog(Long id) {
         // 1. 判断当前登录用户
@@ -118,7 +121,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         // 2. 用户是否已经点赞
         String key = BLOG_LIKED_KEY + id;
         // Boolean isMember = stringRedisTemplate.opsForSet().isMember(key, userId.toString());
-        // sorted_set中通过查询用户的分树(score)来判断元素是否存在，如果score为null，则代表不存在，反之存在
+        // sorted_set中通过查询用户的分数(score)来判断元素是否存在，如果score为null，则代表不存在，反之存在
         Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
         if (score == null) {
             // 2.1 如果未点赞，可以点赞
@@ -143,6 +146,11 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         return Result.ok();
     }
 
+    /**
+     * 显示笔记点赞排行榜
+     * @param id 笔记id
+     * @return
+     */
     @Override
     public Result queryBlogLikes(Long id) {
         String key = BLOG_LIKED_KEY + id;
@@ -195,7 +203,12 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         Long userId = UserHolder.getUser().getId();
 
         // 2. 查询收件箱 zrevrangebyscore key max min
-        String key = FEED_KEY + userId;
+        String key = FEED_KEY + userId; // feed:1010
+        // 获取 [0, max] 之间偏移掉 offset 个后的 2 个数据
+        // 5 5 5 4 4 2 1
+        // 第一次拿到 [0, currTime] offset=0 -> 5 5 -> currTime=5,offset=2
+        // 第二次拿到 [0, 5]        offset=2 -> 5 4 -> currTime=4,offset=1
+        // ...
         Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet()
                 .reverseRangeByScoreWithScores(key, 0, max, offset, 2);
 
@@ -213,6 +226,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             ids.add(Long.valueOf(tuple.getValue()));
             // 4.2 获取分数（时间戳），最后一个元素即为最小时间戳
             long time = tuple.getScore().longValue();
+            // 每次都更新minTime，时间戳是降序排序的，所以最后会获得最小时间戳，并拿到最小时间戳重复次数
             if (time == minTime) {
                 os++;
             } else {
@@ -222,7 +236,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         }
 
         String idsStr = StrUtil.join(",", ids);
-        // 5.1 根据id查询blog
+        // 5.1 根据id查询blog，按照在 ids 集合中的顺序排序（即推送时间从最近到之前）
         List<Blog> blogs = query().in("id", ids).last("order by field(id, " + idsStr + " )").list();
         // 5.2 查询blog用户和是否被点赞
         blogs.forEach(

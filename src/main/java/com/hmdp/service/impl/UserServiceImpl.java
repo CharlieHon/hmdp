@@ -35,8 +35,6 @@ import static com.hmdp.utils.SystemConstants.USER_NICK_NAME_PREFIX;
  * 服务实现类
  * </p>
  *
- * @author 虎哥
- * @since 2021-12-22
  */
 @Slf4j
 @Service
@@ -82,6 +80,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // Object cacheCode = session.getAttribute("code");
 
         // 3. 从redis获取验证码并校验
+        // login:code:phone_number -> code
         String cacheCode = stringRedisTemplate.opsForValue().get(LOGIN_CODE_KEY + loginForm.getPhone());
 
         String code = loginForm.getCode();
@@ -111,6 +110,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 CopyOptions.create()
                         .setIgnoreNullValue(true)
                         .setFieldValueEditor((fieldKey, fieldValue) -> fieldValue.toString()));
+        // login:token:UUID
+        // nickName: user_dashjdhaj
+        // icon:
+        // id: 1010
         String tokenKey = LOGIN_USER_KEY + token;
         stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
         if (userDTO.getId() != 1010) {
@@ -120,6 +123,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // UV统计
         LocalDateTime now = LocalDateTime.now();
         String keySuffix = now.format(DateTimeFormatter.ofPattern("yyyy:MM:dd"));
+        // uv:yyyy:MM:dd
         String uvKey = UV_KEY + keySuffix;
         stringRedisTemplate.opsForHyperLogLog().add(uvKey, user.getId().toString());
         // 8. 返回token给前端，前断登录时才能携带过来(Header)

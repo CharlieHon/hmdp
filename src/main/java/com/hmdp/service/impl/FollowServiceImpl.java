@@ -24,8 +24,6 @@ import java.util.stream.Collectors;
  * 服务实现类
  * </p>
  *
- * @author 虎哥
- * @since 2021-12-22
  */
 @Service
 @RequiredArgsConstructor
@@ -73,6 +71,11 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         return Result.ok(count > 0);
     }
 
+    /**
+     * 查询当前用户 和 目标用户 的共同关注列表
+     * @param id 目标用户id
+     * @return
+     */
     @Override
     public Result followCommons(Long id) {
         Long userId = UserHolder.getUser().getId();

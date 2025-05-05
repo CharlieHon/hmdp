@@ -47,9 +47,9 @@ class UserLoginTests {
     @Test
     void testLogin() throws IOException {
         LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        userLambdaQueryWrapper.gt(true, User::getId, 1005L);
+        userLambdaQueryWrapper.gt(true, User::getId, 4010L);
         List<User> users = userMapper.selectList(userLambdaQueryWrapper);
-        File tokens = new File("D:\\you_dir\\tokens.txt");
+        File tokens = new File("F:\\HX_Study\\Work\\my_offer\\hmdp\\hm-dianping\\tokens.txt");
         FileOutputStream fileOutputStream = new FileOutputStream(tokens);
         for (User user : users) {
             String token = UUID.randomUUID().toString(true);

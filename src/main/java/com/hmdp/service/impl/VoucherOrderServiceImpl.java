@@ -28,8 +28,6 @@ import static com.hmdp.utils.RabbitMQConstants.SECKILL_ORDER_SUCCESS_KEY;
  * 服务实现类
  * </p>
  *
- * @author 虎哥
- * @since 2021-12-22
  */
 @Slf4j
 @Service
@@ -95,8 +93,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 2.5 代金券id
         voucherOrder.setVoucherId(voucherId);
 
+        // TODO: 使用消息队列实现异步下单
         // 基于rabbitmq消息队列实现秒杀异步下单 exchange routingKey queue
-        rabbitTemplate.convertAndSend(SECKILL_ORDER_EXCHANGE, SECKILL_ORDER_SUCCESS_KEY, voucherOrder);
+        // hmdq.seckill.direct      seckill.success
+        rabbitTemplate.convertAndSend(SECKILL_ORDER_EXCHANGE,
+                SECKILL_ORDER_SUCCESS_KEY,
+                voucherOrder);
 
         // 3. 返回订单id
         return Result.ok(orderId);
@@ -105,17 +107,21 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Override
     @Transactional
     public Result createVoucherOrder(Long voucherId) {
+        // 在数据库层面再次进行兜底判断，防止库存超卖和一人多单问题
         // 5. 一人一单
         Long userId = UserHolder.getUser().getId();
         // 5.1 查询订单
-        int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+        int count = query()
+                .eq("user_id", userId)
+                .eq("voucher_id", voucherId)
+                .count();
         // 5.2 判断是否存在
         if (count > 0) {
             // 用户已经购买过
             return Result.fail("用户已经购买过一次");
         }
 
-        // 6. 扣减库存
+        // 6. 扣减库存 update table set stock = stock - 1 where voucher_id = ? and stock > 0
         boolean success = seckillVoucherService.update()
                 .setSql("stock = stock - 1")
                 .eq("voucher_id", voucherId)
@@ -147,7 +153,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         Long userId = voucherOrder.getUserId();
         Long voucherId = voucherOrder.getVoucherId();
         // 5.1 查询订单
-        int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+        int count = query()
+                .eq("user_id", userId)
+                .eq("voucher_id", voucherId)
+                .count();
         // 5.2 判断是否存在
         if (count > 0) {
             log.error("用户已经购买过一单");
