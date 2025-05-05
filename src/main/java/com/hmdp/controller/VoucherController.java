@@ -4,6 +4,7 @@ package com.hmdp.controller;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.req.VoucherSaveReqDTO;
 import com.hmdp.entity.Voucher;
+import com.hmdp.idempotent.NoDuplicateSubmit;
 import com.hmdp.service.IVoucherService;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +29,7 @@ public class VoucherController {
      * @return
      */
     @PostMapping
+    @NoDuplicateSubmit(message = "您操作过快，请稍后重试[createVoucher]")
     public Result addVoucher(@RequestBody VoucherSaveReqDTO requestParam) {
         voucherService.createVoucher(requestParam);
         return Result.ok();
