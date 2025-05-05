@@ -2,6 +2,7 @@ package com.hmdp.controller;
 
 
 import com.hmdp.dto.Result;
+import com.hmdp.dto.req.VoucherSaveReqDTO;
 import com.hmdp.entity.Voucher;
 import com.hmdp.service.IVoucherService;
 import org.springframework.web.bind.annotation.*;
@@ -22,14 +23,14 @@ public class VoucherController {
     private IVoucherService voucherService;
 
     /**
-     * 新增普通券
-     * @param voucher 优惠券信息
-     * @return 优惠券id
+     * 新增优惠券
+     * @param requestParam 请求入参
+     * @return
      */
     @PostMapping
-    public Result addVoucher(@RequestBody Voucher voucher) {
-        voucherService.save(voucher);
-        return Result.ok(voucher.getId());
+    public Result addVoucher(@RequestBody VoucherSaveReqDTO requestParam) {
+        voucherService.createVoucher(requestParam);
+        return Result.ok();
     }
 
     /**
@@ -37,7 +38,7 @@ public class VoucherController {
      * @param voucher 优惠券信息，包含秒杀信息
      * @return 优惠券id
      */
-    @PostMapping("seckill")
+    @PostMapping("/seckill")
     public Result addSeckillVoucher(@RequestBody Voucher voucher) {
         voucherService.addSeckillVoucher(voucher);
         return Result.ok(voucher.getId());
