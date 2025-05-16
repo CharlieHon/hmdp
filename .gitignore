@@ -6,6 +6,8 @@ src/test/
 !**/src/test/**/target/
 *.txt
 *.jmx
+*.pptx
+05-05.md
 
 ### STS ###
 .apt_generated

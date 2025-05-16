@@ -93,10 +93,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 2.5 代金券id
         voucherOrder.setVoucherId(voucherId);
 
-        // TODO: 使用消息队列实现异步下单
         // 基于rabbitmq消息队列实现秒杀异步下单 exchange routingKey queue
         // hmdq.seckill.direct      seckill.success
-        rabbitTemplate.convertAndSend(SECKILL_ORDER_EXCHANGE,
+        rabbitTemplate.convertAndSend(
+                SECKILL_ORDER_EXCHANGE,
                 SECKILL_ORDER_SUCCESS_KEY,
                 voucherOrder);
 
